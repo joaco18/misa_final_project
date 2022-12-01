@@ -6,6 +6,7 @@ experiments/test_config.yaml
 experiments/test_results/
 experiments/train_results/
 models/checkpoints
+data/
 .vscode/
 
 # Byte-compiled / optimized / DLL files
