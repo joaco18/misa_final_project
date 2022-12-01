@@ -1,3 +1,13 @@
+data/*
+experiments/results/*
+models/checkoints/*
+experiments/train_config.yaml
+experiments/test_config.yaml
+experiments/test_results/
+experiments/train_results/
+models/checkpoints
+.vscode/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
