@@ -54,7 +54,7 @@ class MisaFPDataset():
         self.case_selection = case_selection
 
         # Load the dataset csv
-        self.df = pd.read_csv(datapath/'misa_fp_dataset.csv', index_col=0)
+        self.df = pd.read_csv(self.datapath/'misa_fp_dataset.csv', index_col=0)
 
         # Load tissue models
         self.tissue_models = None
