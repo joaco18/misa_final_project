@@ -1,9 +1,9 @@
 import logging
 import numpy as np
-import pathlib as Path
+from pathlib import Path
 import SimpleITK as sitk
-from typing import Tuple
 from scipy.ndimage import zoom
+from skimage.exposure import match_histograms
 
 logging.basicConfig(level=logging.INFO, format='%(message)s')
 
@@ -13,6 +13,11 @@ DEFAULT_NORM_CONFIG = {
     'mask': None,
     'percentiles': (1, 99),
     'dtype': np.uint8
+}
+
+DEFAULT_HIST_MATCH_CONFIG = {
+    'ref_img_path': '/home/jseia/Desktop/MAIA/classes/spain/misa/final_project/\
+        misa_final_project/data/train_set/IBSR_18/IBSR_18_n4.nii.gz'
 }
 
 DEFAULT_RESIZE_CONFIG = {
@@ -59,7 +64,7 @@ def min_max_norm(
         max_val = np.iinfo(img.dtype).max
 
     # Normalize
-    img = (img - img_min) / (img_max - img_min) * max_val
+    img = ((img - img_min) / (img_max - img_min)) * max_val
     img = np.clip(img, 0, max_val)
 
     # Adjust data type
@@ -70,27 +75,28 @@ def min_max_norm(
 class Preprocessor():
     def __init__(
         self,
+        hist_match_cfg: dict = DEFAULT_HIST_MATCH_CONFIG,
         normalization_cfg: dict = DEFAULT_NORM_CONFIG,
-        skull_stripping: bool = False,
         resize_cfg: dict = DEFAULT_RESIZE_CONFIG,
-        mni_atlas: np.ndarray = None,
+        multi_atlas: np.ndarray = None,
         misa_atlas: np.ndarray = None,
-        register_atlases: bool = False,
         tissue_models: np.ndarray = None
     ) -> None:
+        self.hist_match_cfg = hist_match_cfg
         self.normalization_cfg = normalization_cfg
-        self.skull_stripping = skull_stripping
         self.resize_cfg = resize_cfg
-        self.mni_atlas = mni_atlas
+        self.multi_atlas = multi_atlas
         self.misa_atlas = misa_atlas
-        self.register_atlases = register_atlases
-        if (self.mni_atlas is not None) or (self.misa_atlas is not None):
-            self.register_atlases = True
         self.tissue_models = tissue_models
 
     def preprocess(
-        self, img: np.ndarray, brain_mask: np.ndarray = None, reg_path: Path = None, metadata: dict = None
+        self, img: np.ndarray, brain_mask: np.ndarray = None, metadata: dict = None
     ) -> np.ndarray:
+        if self.hist_match_cfg is not None:
+            ref_img_path = self.hist_match_cfg['ref_img_path']
+            ref_img_path = Path(ref_img_path)
+            img = self.match_hist(img, brain_mask, ref_img_path)
+
         # Normalize image intensities
         if self.normalization_cfg is not None:
             normalization_cfg = self.normalization_cfg.copy()
@@ -103,32 +109,25 @@ class Preprocessor():
                     f'Normalization {self.normalization_cfg["type"]} not implemented'
                 )
 
-        # Register the atlases to the particular case.
-        r_mni_atlas, r_misa_atlas = None, None
-        if self.register_atlases:
-            r_mni_atlas, r_misa_atlas = self.register(img, reg_path)
-
-        # If necessary do skull stripping
-        if self.skull_strip:
-            img = self.skull_strip(img, brain_mask)
-
         # Resize img and registered atlas
+        r_multi_atlas = None
+        r_misa_atlas = None
         if self.resize_cfg is not None:
             img, metadata = self.resize(img, **self.resize_cfg, metadata=metadata)
-            if self.register_atlases:
-                r_mni_atlas, _ = self.resize(r_mni_atlas, **self.resize_cfg, metadata=metadata)
-                r_misa_atlas, _ = self.resize(r_misa_atlas, **self.resize_cfg, metadata=metadata)
+            if self.multi_atlas is not None:
+                r_multi_atlas, _ = self.resize(self.mni_atlas, **self.resize_cfg, metadata=metadata)
+            if self.misa_atlas is not None:
+                r_misa_atlas, _ = self.resize(self.misa_atlas, **self.resize_cfg, metadata=metadata)
 
         # Get tissue models labels for the image
         tm_labels = None
         if self.tissue_models is not None:
             tm_labels = self.get_tissue_models_labels(img, brain_mask)
 
-        return img, r_mni_atlas, r_misa_atlas, tm_labels, metadata
+        return img, r_multi_atlas, r_misa_atlas, tm_labels, metadata
 
     def resize(
-        self, img: np.ndarray, voxel_size: tuple, interpolation_order: int,
-        img_size: Tuple, metadata: dict
+        self, img: np.ndarray, voxel_size: tuple, interpolation_order: int, metadata: dict
     ) -> np.ndarray:
 
         ratio = metadata['spacing']/np.array(voxel_size)
@@ -136,36 +135,23 @@ class Preprocessor():
         metadata['spacing'] = voxel_size
         return img, metadata['spacing']
 
-    def skull_strip(self, img: np.ndarray,  mask: np.ndarray = None) -> np.ndarray:
-        img[mask == 0] = 0
-        # logging.warning('Skull Strippping not implemented, returning same image')
-        return img
-
-    def register(self, img: np.ndarray, reg_path: Path = None) -> Tuple[np.ndarray]:
-        if reg_path is None:
-            r_mni_atlas = self.register_to_img(self.mni_atlas, img)
-            r_misa_atlas = self.register_to_img(self.r_misa_atlas, img)
-        else:
-            r_mni_atlas = sitk.GetArrayFromImage(
-                sitk.ReadImage(str(reg_path).replace('.nii.gz', '_mni_atlas.nii.gz')))
-            r_misa_atlas = sitk.GetArrayFromImage(
-                sitk.ReadImage(str(reg_path).replace('.nii.gz', '_misa_atlas.nii.gz')))
-        return r_mni_atlas, r_misa_atlas
-
-    def register_to_img(self, atlas: np.ndarray, img: np.ndarray):
-        # logging.warning(
-        #     'Registration not implemented, returning moving image without modification'
-        # )
-        return atlas
-
-    def get_tissue_models_labels(self, img: np.ndarray, brain_mask: np.ndarray):
-        t1_vector = img[brain_mask == 255].flatten()
+    def get_tissue_models_labels(self, img: np.ndarray, brain_mask: np.ndarray) -> np.ndarray:
+        t1_vector = img[brain_mask != 0].flatten()
         n_classes = self.tissue_models.shape[0]
         prob_map = np.zeros((n_classes, len(t1_vector)))
+        t1_vector[t1_vector == 255] = 254
         for c in range(n_classes):
             prob_map[c, :] = self.tissue_models[c, t1_vector]
         prob_map = np.argmax(prob_map, axis=0)
         tm_labels_vol = brain_mask.flatten()
-        tm_labels_vol[tm_labels_vol == 255] = prob_map + 1
+        tm_labels_vol[tm_labels_vol != 0] = prob_map + 1
         tm_labels_vol = tm_labels_vol.reshape(img.shape)
         return tm_labels_vol
+
+    def match_hist(self, img: np.ndarray, brain_mask: np.ndarray, ref_img_path: Path) -> np.ndarray:
+        ref_img = sitk.GetArrayFromImage(sitk.ReadImage(str(ref_img_path)))
+        ref_img_brain_mask_path = ref_img_path.parent / ref_img_path.name.replace('n4', 'brain_mask')
+        ref_img_brain_mask = sitk.GetArrayFromImage(sitk.ReadImage(str(ref_img_brain_mask_path)))
+        img[brain_mask != 0] = match_histograms(
+            img[brain_mask != 0], ref_img[ref_img_brain_mask != 0])
+        return img

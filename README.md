@@ -1,49 +1,31 @@
 # MISA - Final Project
-## Kakaou & Joaquincito
+## Kaouther Mohaded & Joaquin Oscar Seia
 
 
-\
+
+## 1. Repository content
+
 &emsp;This repository contains the code for Medical Image Segmentation and Applications final project.
 
+&emsp; The following steps and methods were done with this code:
+- Brain mask extraction and N4 bias field correction of the volumes. This was done with the notebook notebooks/n4_bias_field_correction.ipynb
+- Registration. We registered all volumes in train+validation set to all volumes in train+validation set. This was made with two objectives:
+    - Determining the best choice of basic reference image in the train set to construct a generic probabilistic atlas that was later going to be registered to every case in the train+validation set. 
+    - Perform multi-atlas segmentation.
+    All the registerings were done using the notebook: notebooks/registrations.ipynb
+- EM-based segementations. This were run using experiments/em_pred.py code and the configuration file in experiments/em_pred_config.yaml
+- Result analysis of EM-based segmentations: done with notebooks/result_analysis_em.ipynb
+- The tissue models, were obtained using the notebook: notebooks/tissue_models.ipynb
+- Simple Segmenters. Which includes segementing based on tissue models and on probability atlases only. This were run using notebooks/simple_segmenters.ipynb notebook.
+- Result analysis of Simple Segmenters' segmentations: done with notebooks/result_analysis_simple_seg.ipynb
 
----
-<!-- ## 1. Pipeline outline
+- Following the mentioned notebooks you will find references to other pieces of code adecuately organized in other folders, like utils, preprocessing and postprocessing.
 
-&emsp; Brain Segmenter is a pipeline to segment Brain MRI scans in four different different regions: 
--  White Matter (WM)
--  Gray Matter (WM)
--  Cerebro-Spinal Fluid (CSF)
--  Background + Bone + Extra-Skull-Soft-Tissue
-
-&emsp;The pipeline general strructure is the following:
-- Pre-Processing:
-    -  Registering
-    -  Intensity Normalization
-    -  Voxel Spacing Normalization
-    -  Skull Stripping
-- Segmentation:
-    - Reorganizing data
-    - Expectation Maximization voxel-classification
-- Post-Processing:
-    - Brain reconstruction
-    - Label matching
-    - Image storing
-
-
-## 2. Benchmarks:
-Checkploint file | Model  | CSF | WM | GM 
----------------- | -----  | --- | -- |--- 
-checkpoint_def.pkl | EM - init:TM - atlas:mni/after | 0.463 | 0.805  | 0.895 -->
-
-<!-- ## 3. Detailed pipeline description
-
-Detailed desc -->
-
-## 4. Instructions for contributers
+## 2. Instructions for contributers
 
 &emsp; The presented pipeline can be fully reproduced locally. Below we provide  BASH commands, which can be run in an Unix/Unix-like OS (Mac OS, GNU-Linux) and CMD comands for windows user (¬¬ consider changing to GNU-Linux, your life will be better).
 
-### 4.1 Setting up the environment
+### 2.1 Setting up the environment
 
 - Create the environment
 
@@ -76,69 +58,8 @@ Detailed desc -->
     set PYTHONPATH=%PYTHONPATH%;/path/to/your/project/
     ```
 
-
-<!-- ### 4.2 Run pipeline with an example and reproduce our results
-&emsp; To reproduce our results over one example run the following commands:
-
--  4.2.1 **Download the example image**
-    > Unix:
-    ```bash
-    mkdir -p data &&
-    cd data/ &&
-    gdown https://drive.google.com/uc?id=1MlypAmSqJIcYi7HRewPFeutDUL3nx2Fx &&
-    unzip example_image.zip &&
-    rm example_image.zip &&
-    cd ../
-    ```
-
-    > Windows:
-    ```bash
-    mkdir -p data && cd data/ && gdown https://drive.google.com/uc?id=1MlypAmSqJIcYi7HRewPFeutDUL3nx2Fx && tar -xf example_img.zip && del example_image.zip && cd ../
-    ```
-
-    > Alternative:
-
-    &emsp; If you can't or don't want to download from command line. Here is the drive [link](https://drive.google.com/drive/folders/1pyl_sBiLhhxCFA4bZiXIgZy3_g5hpB78?usp=share_link)
-
-    &emsp; The directories should be collaborative_coding/data/example_img/[content of example_img zip] -->
-
-
-<!-- - 4.2.2 **Download the model checkpoints**
-
-    > Unix:
-    ```bash
-    cd models/ &&
-    gdown https://drive.google.com/uc?id=1bNROHoZSQgwaqF-w0NwWyFHyv3H1tXWx &&
-    unzip checkpoints.zip &&
-    rm checkpoints.zip &&
-    cd ../
-    ```
-
-    > Windows:
-    ```bash
-    cd models/ && gdown https://drive.google.com/uc?id=1bNROHoZSQgwaqF-w0NwWyFHyv3H1tXWx && tar -xf checkpoints.zip && del checkpoints.zip && cd ../
-    ```
-
-    > Alternative:
-    
-    &emsp; If you can't or don't want to download from command line. Here is the drive [link](https://drive.google.com/drive/folders/1pyl_sBiLhhxCFA4bZiXIgZy3_g5hpB78?usp=share_link)
-
-    &emsp; The directories should be collaborative_coding/models/checkpoints/[content of checkpoints zip] -->
-
-<!-- - 4.2.3 **Run the pipeline**
-
-    ```bash
-    python brain_segmenter.py --ip [PATH] --chkpt [PATH] --op [PATH]
-    ```
-
-    Example:
-
-    ```bash
-    python brain_segmenter.py --ip /home/jseia/Desktop/MAIA/classes/spain/ehealth/lab/collaborative_coding/data/example_image/1003/1003.nii.gz --chkpt /home/jseia/Desktop/MAIA/classes/spain/ehealth/lab/collaborative_coding/models/checkpoints/checkpoint_def.pkl --op /home/jseia/Desktop/MAIA/classes/spain/ehealth/lab/collaborative_coding/data/example_image/1003
-    ``` -->
-
-### 4.3 Run pipeline as developer
-- 4.3.1 **Download the database**
+### 2.2 Run pipeline as developer
+- 2.2.1 **Download the database**
 
     > Unix:
     ```bash
@@ -160,34 +81,7 @@ Detailed desc -->
 
     &emsp; The directories should be collaborative_coding/data/[content of data zip]
 
-<!-- - 4.3.2 **Run a experiment**
-    1. Modify experiments/train_config.yaml accordingly.
-        Copy the .example file, remove the .example from the name and modify the file
-    2. Run experiments/train.py
-        ```bash
-            python experiments/train.py
-        ```
-- 4.3.3 **Test on the complete test dataset**
-    1. Modify experiments/test_config.yaml accordingly. 
-        
-        Copy the .example file, remove the .example from the name and modify the file
-    2. Run experiments/test.py
-        ```bash
-            python experiments/test.py
-        ```
 
-- 4.3.4 **Get quick analysis of available experiments**
-    1. Run analysis/analysis.py
-
-        ```bash
-        python analysis/analysis.py --rf [PATH]/experiments/test_results --op [PATH]/data/comp_imgs --exp [LIST OF EXPERIMENTS] --cases [LIST OF 5 CASES]
-        ```
-
-        &emsp; Example:
-
-        ```bash
-        python analysis/analysis.py --rf /home/jseia/Desktop/MAIA/classes/spain/ehealth/lab/collaborative_coding/experiments/test_results --op /home/jseia/Desktop/MAIA/classes/spain/ehealth/lab/collaborative_coding/data/comp_imgs --exp try_01 try_02 --cases 1025 1024 1104 1110 1003
-        ``` -->
 
 ### 4.4 Recommendations to developers
 
