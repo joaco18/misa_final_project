@@ -79,7 +79,7 @@
 
     &emsp; If you don't want to download from command line. Here is the drive [link](https://drive.google.com/drive/folders/1H_nEwJybDDA0Z1UfYhpIZt5LMFc3QzU_?usp=share_link)
 
-    &emsp; The directories should be collaborative_coding/data/[content of data zip]
+    &emsp; The directories should be misa_final_project/data/[content of data zip]
 
 
 
