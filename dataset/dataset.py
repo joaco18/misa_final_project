@@ -10,7 +10,7 @@ from typing import Dict, List
 from preprocessing.preprocessing import Preprocessor
 from utils.utils import extract_metadata
 
-this_file_path = Path('__file__').resolve()
+this_file_path = Path().resolve()
 data_path = this_file_path.parent / 'data'
 tm_filepath = data_path / 'tissue_models' / 'tissue_models_3C.pkl'
 
@@ -23,13 +23,19 @@ DEFAULT_NORM_CONFIG = {
     'dtype': np.uint8
 }
 
+DEFAULT_HIST_MATCH_CONFIG = {
+    'ref_img_path': '/home/jseia/Desktop/MAIA/classes/spain/misa/final_project/\
+        misa_final_project/data/train_set/IBSR_18/IBSR_18_n4.nii.gz'
+}
+
 DEFAULT_RESIZE_CONFIG = {
-    'size': (1, 1, 1),
-    'interpolation': 'bicubic'
+    'voxel_size': (1, 1, 1),
+    'interpolation_order': 3,
+    'img_size': None,
 }
 
 
-class MisaFPDataset():
+class IBSRDataset():
     def __init__(
         self,
         datapath: Path = data_path,
@@ -39,8 +45,8 @@ class MisaFPDataset():
         partitions: List[str] = ['train', 'test'],
         case_selection: List[str] = ['all'],
         load_atlases: bool = True,
+        hist_match_cfg: dict = DEFAULT_HIST_MATCH_CONFIG,
         normalization_cfg: dict = DEFAULT_NORM_CONFIG,
-        skull_stripping: bool = True,
         resize_cfg: dict = DEFAULT_RESIZE_CONFIG,
     ) -> None:
 
@@ -71,11 +77,10 @@ class MisaFPDataset():
 
         # Define the preprocessings
         self.t1_preprocessor = Preprocessor(
+            hist_match_cfg=hist_match_cfg,
             normalization_cfg=normalization_cfg,
-            skull_stripping=skull_stripping,
             resize_cfg=resize_cfg,
-            register_atlases=False,
-            mni_atlas=None,
+            multi_atlas=None,
             misa_atlas=None,
             tissue_models=self.tissue_models
         )
@@ -86,11 +91,10 @@ class MisaFPDataset():
             resize_cfg_mask = None
 
         self.label_preprocessor = Preprocessor(
+            hist_match_cfg=None,
             normalization_cfg=None,
-            skull_stripping=None,
             resize_cfg=resize_cfg_mask,
-            register_atlases=False,
-            mni_atlas=None,
+            multi_atlas=None,
             misa_atlas=None,
             tissue_models=None
         )
@@ -111,7 +115,7 @@ class MisaFPDataset():
         self.df.reset_index(drop=True, inplace=True)
 
     def filter_by_case_selection(self):
-        self.df = self.df.loc[self.df.case.isin([int(case) for case in self.case_selection])]
+        self.df = self.df.loc[self.df.case.isin([case for case in self.case_selection])]
         self.df.reset_index(drop=True, inplace=True)
 
     def __len__(self) -> int:
@@ -125,7 +129,7 @@ class MisaFPDataset():
         sample = {}
         sample['id'] = img_name
         # Load image, labels and brain mask
-        sample['t1'] = sitk.ReadImage(str(img_path / f'{img_name}.nii.gz'))
+        sample['t1'] = sitk.ReadImage(str(img_path / f'{img_name}_n4.nii.gz'), sitk.sitkUInt8)
         sample['ref_metadata'] = extract_metadata(sample['t1'])
         sample['t1'] = sitk.GetArrayFromImage(sample['t1'])
 
@@ -139,19 +143,25 @@ class MisaFPDataset():
         sample['brain_mask'] = np.where(sample['brain_mask'] != 0, 255, 0).astype('uint8')
 
         # Preprocess
-        sample['t1'], _, _, sample['tissue_models_labels'] = \
-            self.t1_preprocessor.preprocess(sample['t1'], sample['brain_mask'])
-        sample['ground_truth'], _, _, _ = self.label_preprocessor.preprocess(sample['ground_truth'])
-        sample['brain_mask'], _, _, _ = self.label_preprocessor.preprocess(sample['brain_mask'])
+        sample['t1'], _, _, sample['tissue_models_labels'], sample['ref_metadata'] = \
+            self.t1_preprocessor.preprocess(sample['t1'], sample['brain_mask'], sample['ref_metadata'])
+        sample['ground_truth'], _, _, _, _ = \
+            self.label_preprocessor.preprocess(sample['ground_truth'], metadata=sample['ref_metadata'])
+        sample['brain_mask'], _, _, _, _ = \
+            self.label_preprocessor.preprocess(sample['brain_mask'], metadata=sample['ref_metadata'])
 
         # Load atlases
         if self.load_atlases:
-            sample['tpm_mni'] = sitk.GetArrayFromImage(sitk.ReadImage(
-                str(img_path / f'{img_name}_mni_atlas.nii.gz')
-            ))
-            sample['tpm_mni'] = np.clip(sample['tpm_mni'], a_min=0, a_max=1)
+            # sample['tpm_mni'] = sitk.GetArrayFromImage(sitk.ReadImage(
+            #     str(img_path / f'{img_name}_mni_atlas.nii.gz')
+            # ))
+            # sample['tpm_mni'] = np.clip(sample['tpm_mni'], a_min=0, a_max=1)
             sample['tpm_misa'] = sitk.GetArrayFromImage(sitk.ReadImage(
-                str(img_path / f'{img_name}_misa_atlas.nii.gz')
+                str(img_path / f'{img_name}_atlas.nii.gz')
             ))
             sample['tpm_misa'] = np.clip(sample['tpm_misa'], 0, 1)
+            sample['tpm_multi'] = sitk.GetArrayFromImage(sitk.ReadImage(
+                str(img_path / f'{img_name}_multi-atlas.nii.gz')
+            ))
+            sample['tpm_multi'] = np.clip(sample['tpm_multi'], 0, 1)
         return sample

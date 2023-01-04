@@ -16,8 +16,18 @@ def extract_metadata(img: sitk.Image) -> dict:
     return header
 
 
+def copy_metadata_from_reference(img: sitk.Image, reference: sitk.Image) -> sitk.Image:
+    """Copies metadata from one image to the other"""
+    img.SetDirection(reference.GetDirection())
+    img.SetOrigin(reference.GetOrigin())
+    img.SetSpacing(reference.GetSpacing())
+    for key in reference.GetMetaDataKeys():
+        img.SetMetaData(key, reference.GetMetaData(key))
+    return img
+
+
 def save_img_from_array_using_referece(
-    volume: np.ndarray, reference: sitk.Image, filepath: Path
+    volume: np.ndarray, reference: sitk.Image, filepath: Path, ref_3d_for_4d: bool = False
 ) -> None:
     """Stores the volume in nifty format using the spatial parameters coming
         from a reference image
@@ -25,22 +35,26 @@ def save_img_from_array_using_referece(
         volume (np.ndarray): Volume to store as in Nifty format
         reference (sitk.Image): Reference image to get the spatial parameters from.
         filepath (Path): Where to save the volume.
+        ref_3d_for_4d (bool, optional): whether to use 3d metadata in 4d image.
+            Defaults to False
     """
+    meta_ready = False
     # Save image
     if (type(volume) == list) or (len(volume.shape) > 3):
         if type(volume[0]) == sitk.Image:
             vol_list = [vol for vol in volume]
         else:
             vol_list = [sitk.GetImageFromArray(vol) for vol in volume]
+            if ref_3d_for_4d:
+                vol_list = [copy_metadata_from_reference(vol, reference) for vol in vol_list]
+                meta_ready = True
         joiner = sitk.JoinSeriesImageFilter()
         img = joiner.Execute(*vol_list)
     else:
         img = sitk.GetImageFromArray(volume)
-    img.SetDirection(reference.GetDirection())
-    img.SetOrigin(reference.GetOrigin())
-    img.SetSpacing(reference.GetSpacing())
-    for key in reference.GetMetaDataKeys():
-        img.SetMetaData(key, reference.GetMetaData(key))
+
+    if not meta_ready:
+        copy_metadata_from_reference(img, reference)
     sitk.WriteImage(img, str(filepath))
 
 

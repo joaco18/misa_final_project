@@ -1,12 +1,13 @@
 data/*
-experiments/results/*
-models/checkoints/*
-experiments/train_config.yaml
-experiments/test_config.yaml
-experiments/test_results/
-experiments/train_results/
-models/checkpoints
-data/
+experiments/elastix/*
+experiments/simple_segmenters/*
+experiments/simple_segmenters_atlases/*
+experiments/train_results/*
+experiments/val_results/*
+experiments/em_pred_config.yaml
+elastix/elastix-5*
+analysis/*
+
 .vscode/
 
 # Byte-compiled / optimized / DLL files

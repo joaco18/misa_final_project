@@ -102,11 +102,12 @@ class ExpectationMaximization():
         self.training = False
 
         # Check kind of means to be used
-        mean_options = ['random', 'kmeans', 'tissue_models', 'mni_atlas', 'mv_atlas']
+        mean_options = ['random', 'kmeans', 'tissue_models', 'misa_atlas', 'multi_atlas']
         if isinstance(mean_init, str) and (mean_init not in mean_options):
             raise Exception(
                 "Initial means must be either 'random', 'kmeans', 'tisssue_models', "
-                "'label_prop' or an array of 'n_components' rows, and n_features number of columns"
+                "'misa_atlas', 'multi_atlas' or an array of 'n_components' rows,"
+                "and n_features number of columns"
             )
 
     def fit(self, x: np.ndarray):
@@ -139,7 +140,9 @@ class ExpectationMaximization():
                 self.mean_type = 'Tissue Models'
                 tissue_prob_maps = np.zeros((self.n_samples, self.n_components))
                 for c in range(self.n_components):
-                    tissue_prob_maps[:, c] = self.tissue_models[c, :][self.x[:, 0]]
+                    pix_intensity = self.x[:, 0]
+                    pix_intensity[pix_intensity == 255] = 254
+                    tissue_prob_maps[:, c] = self.tissue_models[c, :][pix_intensity]
                 self.posteriors = tissue_prob_maps
                 self.posteriors[np.arange(self.n_samples), np.argmax(tissue_prob_maps, axis=1)] = 1
             elif self.mean_init == 'mni_atlas':

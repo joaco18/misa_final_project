@@ -1,4 +1,4 @@
-from dataset.dataset import MedvisionDataset
+from dataset.dataset import IBSRDataset
 from pathlib import Path
 from tqdm import tqdm
 import numpy as np
@@ -21,23 +21,27 @@ def main():
     experiments_path = Path('__file__').resolve().parent / 'experiments'
 
     # Load configurations file
-    cfg_path = experiments_path / 'train_config.yaml'
+    cfg_path = experiments_path / 'em_pred_config.yaml'
     with open(cfg_path, "r") as ymlfile:
         cfg = yaml.safe_load(ymlfile)
 
-    load_atlases = cfg['model']['initialization'] in ['mni_atlas', 'mv_atlas']
+    load_atlases = cfg['model']['initialization'] in ['multi_atlas', 'misa_atlas']
     load_atlases = load_atlases or (cfg['model']['use_atlas_in_em'] is not None)
     # Generate train dataset
-    train_dataset = MedvisionDataset(
+    if cfg['data']['normalization_cfg'] is not None:
+        normalization_cfg = cfg['data']['normalization_cfg'].copy()
+    else:
+        normalization_cfg = None
+    train_dataset = IBSRDataset(
         datapath=Path(cfg['data']['datapath']),
         tissue_models_filepath=Path(cfg['data']['tissue_models_filepath']),
         modalities=cfg['data']['modalities'],
         pathologies=cfg['data']['pathologies'],
-        partitions=['train'],
+        partitions=cfg['data']['partitions'],
         case_selection=cfg['data']['case_selection'],
         load_atlases=load_atlases,
-        normalization_cfg=cfg['data']['normalization_cfg'].copy(),
-        skull_stripping=cfg['data']['skull_stripping'],
+        hist_match_cfg=cfg['data']['hist_match_cfg'],
+        normalization_cfg=normalization_cfg,
         resize_cfg=cfg['data']['resize_cfg'],
     )
 
@@ -72,10 +76,11 @@ def main():
         atlas_in_em = cfg['model']['which_atlas_in_em']
         condition = (atlas_in_em is not None) and (cfg['model']['use_atlas_in_em'] is not None)
         if ('atlas' in cfg['model']['initialization']) or condition:
-            if (cfg['model']['initialization'] == 'mv_atlas') or ('mv' in atlas_in_em):
-                atlas_map_vector = case['tpm_mv'][:, brain_mask == 255]
+            if (cfg['model']['initialization'] == 'misa_atlas') or \
+                    ((atlas_in_em is not None) and ('misa' in atlas_in_em)):
+                atlas_map_vector = case['tpm_misa'][:, brain_mask != 0]
             else:
-                atlas_map_vector = case['tpm_mni'][:, brain_mask == 255]
+                atlas_map_vector = case['tpm_multi'][:, brain_mask != 0]
             atlas_map_vector = atlas_map_vector.reshape(atlas_map_vector.shape[0], -1)
             # Discard background classs values
             atlas_map_vector = atlas_map_vector[1:, :]
@@ -115,7 +120,7 @@ def main():
         results[str(case['id'])] = {
             'n_iters': model.n_iter_,
             'time': pred_time,
-            'dice': {'csf': dice[0], 'wm': dice[1], 'gm': dice[2]},
+            'dice': {'csf': dice[0], 'gm': dice[1], 'wm': dice[2]},
             'means': model.means,
             'cov_mat': model.sigmas,
             'priors': model.priors
@@ -145,9 +150,32 @@ def main():
     if cfg['results']['save_results_csv']:
         results_csv.to_csv(results_path/'results.csv')
 
+    logging.info('Experiment finished!')
+    logging.info(f'    Mean dice CSF: {np.around(results_csv.csf.mean(), 3)}')
+    logging.info(f'    Mean dice WM: {np.around(results_csv.wm.mean(), 3)}')
+    logging.info(f'    Mean dice GM: {np.around(results_csv.gm.mean(), 3)}')
+
+    # Save final stats in results.json
+    with open(str(results_path / 'results.json'), 'w') as json_file:
+        results['Stats'] = {
+            'CSF': {
+                'mean': np.around(results_csv.csf.mean(), 3),
+                'std': np.around(results_csv.csf.std(), 3)
+            },
+            'WM': {
+                'mean': np.around(results_csv.wm.mean(), 3),
+                'std': np.around(results_csv.wm.std(), 3)
+            },
+            'GM': {
+                'mean': np.around(results_csv.gm.mean(), 3),
+                'std': np.around(results_csv.gm.std(), 3)
+            }
+        }
+        json.dump(results, json_file, sort_keys=True, indent=4, separators=(',', ': '))
+
     # Store the configuration info
     # For readability
-    with open(results_path / 'test_config.yaml', "w") as ymlfile:
+    with open(results_path / 'train_config.yaml', "w") as ymlfile:
         yaml.safe_dump(cfg, ymlfile)
 
     # For fast pipeline configuration
@@ -155,11 +183,6 @@ def main():
         update = {'cfg': cfg, 'tissue_models': train_dataset.tissue_models}
         checkp.update(update)
         pickle.dump(checkp, pkl_file)
-
-    logging.info('Experiment finished!')
-    logging.info(f'    Mean dice CSF: {np.around(results_csv.csf.mean(), 3)}')
-    logging.info(f'    Mean dice WM: {np.around(results_csv.wm.mean(), 3)}')
-    logging.info(f'    Mean dice GM: {np.around(results_csv.gm.mean(), 3)}')
 
 
 if __name__ == '__main__':
