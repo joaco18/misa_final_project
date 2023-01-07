@@ -4,6 +4,7 @@ experiments/simple_segmenters/*
 experiments/simple_segmenters_atlases/*
 experiments/train_results/*
 experiments/val_results/*
+experiments/dl/*
 experiments/em_pred_config.yaml
 elastix/elastix-5*
 analysis/*
