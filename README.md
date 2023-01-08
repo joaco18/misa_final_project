@@ -2,6 +2,7 @@
 ## Kaouther Mouheb & Joaquin Oscar Seia
 
 
+![alt text](segmentations_fig.svg)
 
 ## 1. Repository content
 
@@ -19,7 +20,10 @@
 - Simple Segmenters. Which includes segementing based on tissue models and on probability atlases only. This were run using notebooks/simple_segmenters.ipynb notebook.
 - Result analysis of Simple Segmenters' segmentations: done with notebooks/result_analysis_simple_seg.ipynb
 
+- Deep learning experiments were run with the file dl/Misa_project_nn_unet.ipynb
+
 - Following the mentioned notebooks you will find references to other pieces of code adecuately organized in other folders, like utils, preprocessing and postprocessing.
+
 
 ## 2. Instructions for contributers
 
@@ -65,23 +69,11 @@
     ```bash
     mkdir -p data &&
     cd data/ &&
-    gdown https://drive.google.com/uc?id=1H_nEwJybDDA0Z1UfYhpIZt5LMFc3QzU_ &&
+    gdown https://drive.google.com/uc?id=1jigLNQUCBR9zhosxhYjlQ6L9GDcJb-Om_ &&
     unzip data.zip &&
     rm data.zip &&
     cd ../
     ```
-    > Windows:
-    ```bash
-    mkdir -p data && cd data/ && gdown https://drive.google.com/uc?id=1H_nEwJybDDA0Z1UfYhpIZt5LMFc3QzU_ && tar -xf data.zip && del data.zip && cd ../
-    ```
-
-    > Alternative:
-
-    &emsp; If you don't want to download from command line. Here is the drive [link](https://drive.google.com/drive/folders/1H_nEwJybDDA0Z1UfYhpIZt5LMFc3QzU_?usp=share_link)
-
-    &emsp; The directories should be misa_final_project/data/[content of data zip]
-
-
 
 ### 4.4 Recommendations to developers
 
